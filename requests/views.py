@@ -9,6 +9,7 @@ from itemmaster.models import ItemMaster
 from Common.Middleware import authenticate, restrict
 # ✅ Get Project object
 from projects.models import Project
+from matgroups.models import MatGroup
 
 
 # ✅ Helper function to get employee name
@@ -33,6 +34,7 @@ def create_request(request):
             project_code = data.get("project_code")
             print(project_code)
             notes = data.get("notes", "")
+            request_type = data.get("type", "")
 
             if not project_code:
                 return JsonResponse({"error": "project_id is required"}, status=400)
@@ -52,6 +54,7 @@ def create_request(request):
             request_obj = Request.objects.create(
                 project_code=project_obj,
                 notes=notes,
+                type=request_type,
                 createdby=employee,
                 updatedby=employee
             )
@@ -61,6 +64,7 @@ def create_request(request):
                 "project_code": request_obj.project_code.project_code if request_obj.project_code else None,
                 "project_name": request_obj.project_code.project_name if request_obj.project_code else None,
                 "notes": request_obj.notes,
+                "type": request_obj.type,
                 "request_status": request_obj.request_status,
                 "created": request_obj.created.strftime("%Y-%m-%d %H:%M:%S"),
                 "createdby": get_employee_name(request_obj.createdby)
@@ -107,7 +111,9 @@ def list_requests(request):
                     "user_text": r.request_data ,
                   
                     "sap_item": r.sap_item.sap_item_id if r.sap_item else None,
+                    "material_group": r.material_group.mgrp_code if r.material_group else None,
                     "notes": r.notes,
+                    "type": r.type,
                     "closetime": r.closetime.strftime("%Y-%m-%d") if r.closetime else None,
                     "status": r.status,
                     "timetaken": r.timetaken,
@@ -273,6 +279,61 @@ def assign_sap_item(request, request_id):
                 "request_id": req_obj.request_id,
                 "project_code": req_obj.project_code.project_code if req_obj.project_code else None,
                 "sap_item": req_obj.sap_item.sap_item_id if req_obj.sap_item else None,
+                "request_status": req_obj.request_status,
+                "updated": req_obj.updated.strftime("%Y-%m-%d %H:%M:%S"),
+                "updatedby": get_employee_name(req_obj.updatedby)
+            }
+            return JsonResponse(response_data, status=200)
+
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "Invalid JSON data"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+
+    return JsonResponse({"error": "Invalid request method"}, status=405)
+
+
+# ===========================
+# ASSIGN MATERIAL GROUP (only MDGT)
+# ===========================
+@csrf_exempt
+@authenticate
+@restrict(roles=["MDGT"])
+def assign_material_group(request, request_id):
+    if request.method == "PUT":
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+            material_group_code = data.get("material_group")
+
+            if not material_group_code:
+                return JsonResponse({"error": "material_group is required"}, status=400)
+
+            req_obj = Request.objects.filter(
+                request_id=request_id, is_deleted=False).first()
+            if not req_obj:
+                return JsonResponse({"error": "Request not found"}, status=404)
+
+            try:
+                mat_group_obj = MatGroup.objects.get(
+                    mgrp_code=material_group_code, is_deleted=False)
+            except MatGroup.DoesNotExist:
+                return JsonResponse({"error": f"MatGroup with mgrp_code={material_group_code} not found"}, status=404)
+
+            req_obj.material_group = mat_group_obj
+            req_obj.status = "closed"  # optional: auto-close after assignment
+            req_obj.updated = timezone.now()
+
+            # ✅ Update audit
+            emp_id = request.user.get("emp_id")
+            employee = Employee.objects.filter(emp_id=emp_id).first()
+            req_obj.updatedby = employee
+
+            req_obj.save()
+
+            response_data = {
+                "request_id": req_obj.request_id,
+                "project_code": req_obj.project_code.project_code if req_obj.project_code else None,
+                "material_group": req_obj.material_group.mgrp_code if req_obj.material_group else None,
                 "request_status": req_obj.request_status,
                 "updated": req_obj.updated.strftime("%Y-%m-%d %H:%M:%S"),
                 "updatedby": get_employee_name(req_obj.updatedby)

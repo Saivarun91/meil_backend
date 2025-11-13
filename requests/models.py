@@ -3,6 +3,7 @@ from django.utils import timezone
 from Employee.models import Employee
 from itemmaster.models import ItemMaster
 from projects.models import Project
+from matgroups.models import MatGroup
 
 
 class Request(models.Model):
@@ -23,7 +24,10 @@ class Request(models.Model):
     reply_smsdate = models.DateTimeField(null=True, blank=True)
     sap_item = models.ForeignKey(
         ItemMaster, on_delete=models.SET_NULL, null=True, blank=True)
+    material_group = models.ForeignKey(
+        MatGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name="requests")
     notes = models.CharField(max_length=100, blank=True)
+    type = models.CharField(max_length=50, blank=True, null=True)  # e.g., "material group", "material"
     closetime = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=50, blank=True)
     timetaken = models.IntegerField(null=True, blank=True)

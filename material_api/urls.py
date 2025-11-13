@@ -49,4 +49,11 @@ urlpatterns = [
     # Get all items by group + material type
     path('matgroups/<str:group_code>/items/<str:mat_type_code>/', 
          views.items_by_group_and_type, name='items_by_group_and_type'),
+     
+     
+    # Get item details with attributes
+    path('items/<str:item_id>/details/', 
+         views.item_details_with_attributes, name='item_details_with_attributes'),
+
+
 ]

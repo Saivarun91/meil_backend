@@ -47,6 +47,7 @@ from Employee.models import Employee
 class ItemMaster(models.Model):
     local_item_id = models.AutoField(primary_key=True)
     sap_item_id = models.IntegerField(null=True, blank=True)
+
     mat_type_code = models.ForeignKey(
         "MaterialType.MaterialType",
         to_field="mat_type_code",
@@ -54,6 +55,7 @@ class ItemMaster(models.Model):
         on_delete=models.CASCADE,
         related_name="items"
     )
+
     mgrp_code = models.ForeignKey(
         "matgroups.MatGroup",
         to_field="mgrp_code",
@@ -61,9 +63,22 @@ class ItemMaster(models.Model):
         on_delete=models.CASCADE,
         related_name="items"
     )
-    item_desc = models.CharField(max_length=40)
+
+    item_desc = models.CharField(max_length=100)
     notes = models.CharField(max_length=250, blank=True, null=True)
     search_text = models.CharField(max_length=300, blank=True, null=True)
+
+    # ✅ NEW: Store selected attribute values for this item
+    # Example:
+    # {
+    #   "Color": "Red",
+    #   "Size": "M",
+    #   "Material": "Plastic"
+    # }
+    attributes = models.JSONField(
+        default=dict,
+        help_text="Stores selected attribute values for this material, based on MatGroup's attribute definitions"
+    )
 
     created = models.DateTimeField(auto_now_add=True)
     createdby = models.ForeignKey(
@@ -85,3 +100,7 @@ class ItemMaster(models.Model):
 
     def __str__(self):
         return f"{self.local_item_id} - {self.item_desc}"
+
+    class Meta:
+        verbose_name = "Item Master"
+        verbose_name_plural = "Item Masters"

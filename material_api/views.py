@@ -4,8 +4,10 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from matgroups.models import MatGroup
+from supergroups.models import SuperGroup
 from MaterialType.models import MaterialType
 from itemmaster.models import ItemMaster
+from matg_attributes.models import MatgAttribute
 from .serializers import MatGroupSerializer, MaterialTypeSerializer, ItemMasterSerializer
 
 
@@ -70,7 +72,8 @@ def search_groups(request):
         return int(num * factor) / factor
 
     data = [
-        {**MatGroupSerializer(group).data, "score": group.score, "rank": truncate(group.rank * 100, 2)}
+        {**MatGroupSerializer(group).data, "score": group.score,
+         "rank": truncate(group.rank * 100, 2)}
         for group in groups
     ]
     return Response(data)
@@ -87,14 +90,14 @@ def search_groups(request):
 def super_material_groups(request):
     """
     Get all top-level (super) material groups.
-    Assumes hierarchy via parent_group FK in MatGroup.
+    Queries SuperGroup model directly.
     """
-    super_groups = MatGroup.objects.filter(is_deleted=False, parent_group__isnull=True)
+    super_groups = SuperGroup.objects.filter(is_deleted=False)
     data = [
         {
-            "super_code": grp.mgrp_code,
-            "super_name": grp.mgrp_longname,
-            "short_name": grp.mgrp_shortname,
+            "super_code": grp.sgrp_code,
+            "super_name": grp.sgrp_name,
+            "short_name": grp.sgrp_name,  # SuperGroup doesn't have short_name, using sgrp_name
         }
         for grp in super_groups
     ]
@@ -105,9 +108,10 @@ def super_material_groups(request):
 def material_groups_by_super(request, super_code):
     """
     Get all material groups under a selected super group.
+    Filters MatGroup by sgrp_code (ForeignKey to SuperGroup).
     """
     groups = MatGroup.objects.filter(
-        parent_group__mgrp_code=super_code,
+        sgrp_code__sgrp_code=super_code,
         is_deleted=False
     )
     if not groups.exists():
@@ -128,9 +132,14 @@ def material_groups_by_super(request, super_code):
 def materials_by_matgroup(request, mgrp_code):
     """
     Get all material types under a specific material group.
+    Only returns material types that have items belonging to the specified material group.
     """
+    # Filter material types that have items in the specified material group
+    # items__mgrp_code matches against the ForeignKey (mgrp_code is the primary key in MatGroup)
+    # Django will match the string mgrp_code against the primary key automatically
     materials = MaterialType.objects.filter(
         items__mgrp_code=mgrp_code,
+        items__is_deleted=False,
         is_deleted=False
     ).distinct()
 
@@ -148,16 +157,25 @@ def materials_by_matgroup(request, mgrp_code):
 def items_by_material_type(request, mat_type_code):
     """
     Get all items under a specific material type.
+    Optionally filter by material group if mgrp_code query parameter is provided.
     """
+    mgrp_code = request.GET.get("mgrp_code", None)
+
     items = ItemMaster.objects.filter(
         mat_type_code=mat_type_code,
         is_deleted=False
     )
 
+    # Filter by material group if provided
+    if mgrp_code:
+        items = items.filter(mgrp_code=mgrp_code)
+
     data = [
         {
+            "local_item_id": i.local_item_id,
             "sap_id": i.sap_item_id,
             "item_desc": i.item_desc,
+            "notes": i.notes,
             "mgrp_code": i.mgrp_code.mgrp_code if i.mgrp_code else None,
             "mat_type_code": mat_type_code,
         }
@@ -353,3 +371,74 @@ def sap_ids_by_matgroup(request, group_code):
     ]
 
     return Response(response_data)
+
+
+# ==============================================================
+# 🔹 7. Get Item Details with Attributes
+# ==============================================================
+@api_view(["GET"])
+def item_details_with_attributes(request, item_id):
+    """
+    Get item details by local_item_id or sap_item_id with all attributes for the material group.
+    """
+    try:
+        # Try to find by local_item_id first, then by sap_item_id
+        try:
+            item_id_int = int(item_id)
+            item = ItemMaster.objects.filter(
+                local_item_id=item_id_int,
+                is_deleted=False
+            ).first()
+            if not item:
+                item = ItemMaster.objects.filter(
+                    sap_item_id=item_id_int,
+                    is_deleted=False
+                ).first()
+        except ValueError:
+            return Response({"error": "Invalid item ID format"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not item:
+            return Response({"error": "Item not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Serialize item
+        item_data = ItemMasterSerializer(item).data
+
+        # Add material group info
+        item_data['mgrp_shortname'] = item.mgrp_code.mgrp_shortname if item.mgrp_code else None
+        item_data['mgrp_longname'] = item.mgrp_code.mgrp_longname if item.mgrp_code else None
+
+        # Add material type info
+        item_data['mat_type_desc'] = item.mat_type_code.mat_type_desc if item.mat_type_code else None
+
+        # Get all attributes for the material group
+        attributes_data = []
+        if item.mgrp_code:
+            matg_attributes = MatgAttribute.objects.filter(
+                mgrp_code=item.mgrp_code,
+                is_deleted=False
+            ).first()
+            
+            if matg_attributes and matg_attributes.attributes:
+                # Extract attributes from JSONField
+                # The attributes JSONField structure is: { "Color": { "values": [...], "print_priority": 1, ... }, ... }
+                for attr_name, attr_config in matg_attributes.attributes.items():
+                    if isinstance(attr_config, dict):
+                        attributes_data.append({
+                            "attrib_name": attr_name,
+                            "attrib_printname": attr_config.get("print_name", attr_name),
+                            "attrib_tagname": attr_config.get("tag_name", attr_name.lower().replace(" ", "_")),
+                            "attrib_printpriority": attr_config.get("print_priority", 0),
+                            "values": attr_config.get("values", []),
+                            "validation": attr_config.get("validation"),
+                            "max_length": attr_config.get("max_length"),
+                            "unit": attr_config.get("unit"),
+                        })
+
+        response_data = {
+            "item": item_data,
+            "attributes": attributes_data,
+        }
+
+        return Response(response_data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

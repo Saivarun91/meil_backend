@@ -1,27 +1,51 @@
 from django.db import models
 from django.utils import timezone
-from Employee.models import Employee  # ✅ Import Employee model
+from Employee.models import Employee
+
 
 class MatgAttribute(models.Model):
     attrib_id = models.AutoField(primary_key=True)
-    mgrp_code = models.ForeignKey("matgroups.MatGroup", on_delete=models.CASCADE, related_name="attributes")
-    attrib_printpriority = models.IntegerField(default=0, help_text="Lower value appears earlier in item name")
-    attrib_name = models.CharField(max_length=30)
-    attrib_printname = models.CharField(max_length=10)
-    attrib_name_validation = models.CharField(max_length=30, blank=True)
-    att_maxnamelen = models.PositiveSmallIntegerField(null=True, blank=True)
-    attrib_tagname = models.CharField(max_length=10)
-    attrib_tag_validation = models.CharField(max_length=30, blank=True)
-    attrib_maxtaglen = models.PositiveSmallIntegerField(null=True, blank=True)
+    mgrp_code = models.ForeignKey(
+        "matgroups.MatGroup",
+        on_delete=models.CASCADE,
+        related_name="attributes"
+    )
 
-    # ✅ Audit fields changed to Employee
+    # ✅ JSONB field for storing flexible attribute/value mappings
+    # Example:
+    # {
+    #   "Color": {
+    #       "values": ["Red", "Blue", "Green"],
+    #       "print_priority": 1,
+    #       "validation": "alpha",
+    #       "max_length": 10
+    #   },
+    #   "Size": {
+    #       "values": ["S", "M", "L"],
+    #       "print_priority": 2
+    #   }
+    # }
+    attributes = models.JSONField(
+        default=dict,
+        help_text="JSON structure storing attribute names and their possible values"
+    )
+
+    # ✅ Audit fields
     created = models.DateTimeField(auto_now_add=True)
-    createdby = models.ForeignKey(Employee, related_name="matgattr_created",
-                                   on_delete=models.SET_NULL, null=True, blank=True)
+    createdby = models.ForeignKey(
+        Employee, related_name="matgattr_created",
+        on_delete=models.SET_NULL, null=True, blank=True
+    )
     updated = models.DateTimeField(default=timezone.now)
-    updatedby = models.ForeignKey(Employee, related_name="matgattr_updated",
-                                   on_delete=models.SET_NULL, null=True, blank=True)
+    updatedby = models.ForeignKey(
+        Employee, related_name="matgattr_updated",
+        on_delete=models.SET_NULL, null=True, blank=True
+    )
     is_deleted = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.attrib_name} ({self.mgrp_code_id})"
+        return f"Attributes for MatGroup {self.mgrp_code_id}"
+
+    class Meta:
+        verbose_name = "Material Group Attribute"
+        verbose_name_plural = "Material Group Attributes"

@@ -27,4 +27,5 @@ class ItemMasterSerializer(serializers.ModelSerializer):
             "search_text",
             "mat_type_code",
             "mgrp_code",
+            "attributes",
         ]
