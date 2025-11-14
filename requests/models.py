@@ -25,7 +25,8 @@ class Request(models.Model):
     sap_item = models.ForeignKey(
         ItemMaster, on_delete=models.SET_NULL, null=True, blank=True)
     material_group = models.ForeignKey(
-        MatGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name="requests")
+        MatGroup, on_delete=models.SET_NULL, null=True, blank=True, 
+        related_name="request_material_groups", to_field="mgrp_code")
     notes = models.CharField(max_length=100, blank=True)
     type = models.CharField(max_length=50, blank=True, null=True)  # e.g., "material group", "material"
     closetime = models.DateField(null=True, blank=True)

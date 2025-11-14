@@ -1,4 +1,4 @@
 from django.contrib import admin
-from .models import MatgAttribute
-admin.site.register(MatgAttribute)
+from .models import MatgAttributeItem
+admin.site.register(MatgAttributeItem)
 # Register your models here.

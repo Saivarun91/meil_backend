@@ -8,7 +8,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('requests', '0010_request_type'),
-        ('matgroups', '0001_initial'),  # Adjust this based on your actual matgroups migration
+        # Note: MatGroup model should already exist, so no explicit dependency needed
     ]
 
     operations = [
@@ -19,8 +19,9 @@ class Migration(migrations.Migration):
                 blank=True,
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
-                related_name='requests',
-                to='matgroups.matgroup'
+                related_name='request_material_groups',
+                to='matgroups.matgroup',
+                to_field='mgrp_code'
             ),
         ),
     ]

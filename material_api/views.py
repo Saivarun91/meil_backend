@@ -7,7 +7,7 @@ from matgroups.models import MatGroup
 from supergroups.models import SuperGroup
 from MaterialType.models import MaterialType
 from itemmaster.models import ItemMaster
-from matg_attributes.models import MatgAttribute
+from matg_attributes.models import MatgAttributeItem
 from .serializers import MatGroupSerializer, MaterialTypeSerializer, ItemMasterSerializer
 
 
@@ -371,7 +371,7 @@ def sap_ids_by_matgroup(request, group_code):
     ]
 
     return Response(response_data)
-
+    
 
 # ==============================================================
 # 🔹 7. Get Item Details with Attributes
@@ -413,7 +413,7 @@ def item_details_with_attributes(request, item_id):
         # Get all attributes for the material group
         attributes_data = []
         if item.mgrp_code:
-            matg_attributes = MatgAttribute.objects.filter(
+            matg_attributes = MatgAttributeItem.objects.filter(
                 mgrp_code=item.mgrp_code,
                 is_deleted=False
             ).first()

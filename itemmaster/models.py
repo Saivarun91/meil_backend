@@ -74,7 +74,7 @@ class ItemMaster(models.Model):
     #   "Color": "Red",
     #   "Size": "M",
     #   "Material": "Plastic"
-    # }
+    # }     
     attributes = models.JSONField(
         default=dict,
         help_text="Stores selected attribute values for this material, based on MatGroup's attribute definitions"

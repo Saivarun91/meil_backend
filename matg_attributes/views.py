@@ -3,18 +3,21 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils import timezone
 import json
-from .models import MatgAttribute
+
+from .models import MatgAttributeItem
 from matgroups.models import MatGroup
 from Employee.models import Employee
 from Common.Middleware import authenticate, restrict
 
 
-# ✅ Helper function
+# Helper function to get employee name
 def get_employee_name(emp):
     return emp.emp_name if emp else None
 
 
-# ✅ CREATE MatgAttribute or ADD attributes to existing group
+# ============================================================
+# ✅ CREATE OR UPDATE MULTIPLE ATTRIBUTE ROWS
+# ============================================================
 @csrf_exempt
 @authenticate
 @restrict(roles=["Admin", "SuperAdmin", "MDGT"])
@@ -24,149 +27,151 @@ def create_matgattribute(request):
 
     try:
         data = json.loads(request.body.decode("utf-8"))
+
         mgrp_code = data.get("mgrp_code")
-        attributes_data = data.get("attributes")  # Expected dict or list of attributes
+        attributes = data.get("attributes")  # expecting list
 
-        if not mgrp_code or not isinstance(attributes_data, dict):
-            return JsonResponse({"error": "Missing or invalid fields: mgrp_code, attributes"}, status=400)
+        if not mgrp_code or not isinstance(attributes, list):
+            return JsonResponse({"error": "Invalid payload (mgrp_code, attributes)"}, status=400)
 
-        # ✅ Validate MatGroup
+        # Validate MatGroup
         matgroup = MatGroup.objects.filter(mgrp_code=mgrp_code, is_deleted=False).first()
         if not matgroup:
             return JsonResponse({"error": "MatGroup not found"}, status=404)
 
-        emp_id = request.user.get("emp_id")
-        employee = Employee.objects.filter(emp_id=emp_id).first()
+        employee = Employee.objects.filter(emp_id=request.user.get("emp_id")).first()
 
-        # ✅ Check if record already exists
-        matg_attr = MatgAttribute.objects.filter(mgrp_code=matgroup, is_deleted=False).first()
-        if matg_attr:
-            # Merge with existing attributes
-            matg_attr.attributes.update(attributes_data)
-            matg_attr.updated = timezone.now()
-            matg_attr.updatedby = employee
-            matg_attr.save()
-            message = "MatgAttribute updated with new attributes"
-        else:
-            # Create new record
-            matg_attr = MatgAttribute.objects.create(
+        created_items = []
+
+        # Loop and create/update each attribute row
+        for attr in attributes:
+            attribute_name = attr.get("attribute_name")
+            possible_values = attr.get("possible_values", [])
+            uom = attr.get("uom")
+
+            if not attribute_name or not isinstance(possible_values, list):
+                return JsonResponse({"error": "Invalid attribute structure"}, status=400)
+
+            item, created = MatgAttributeItem.objects.update_or_create(
                 mgrp_code=matgroup,
-                attributes=attributes_data,
-                createdby=employee,
-                updatedby=employee
+                attribute_name=attribute_name,
+                defaults={
+                    "possible_values": possible_values,
+                    "uom": uom,
+                }
             )
-            message = "MatgAttribute created successfully"
+
+            # Set creator if new
+            if created:
+                item.createdby = employee
+
+            item.updatedby = employee
+            item.updated = timezone.now()
+            item.save()
+
+            created_items.append({
+                "id": item.id,
+                "attribute_name": item.attribute_name,
+                "possible_values": item.possible_values,
+                "uom": item.uom,
+            })
 
         return JsonResponse({
-            "message": message,
-            "attrib_id": matg_attr.attrib_id,
-            "mgrp_code": matg_attr.mgrp_code.mgrp_code,
-            "attributes": matg_attr.attributes,
-            "created": matg_attr.created.strftime("%Y-%m-%d %H:%M:%S"),
-            "updated": matg_attr.updated.strftime("%Y-%m-%d %H:%M:%S"),
-            "createdby": get_employee_name(matg_attr.createdby),
-            "updatedby": get_employee_name(matg_attr.updatedby)
+            "message": "Attributes created/updated successfully",
+            "attributes": created_items
         }, status=201)
 
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON format"}, status=400)
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
 
 
-# ✅ LIST all MatgAttributes
+
+# ============================================================
+# ✅ LIST ALL ATTRIBUTE ROWS
+# ============================================================
 @authenticate
 @restrict(roles=["Admin", "SuperAdmin", "User", "MDGT"])
 def list_matgattributes(request):
     if request.method != "GET":
         return JsonResponse({"error": "Invalid request method"}, status=405)
 
-    attributes = MatgAttribute.objects.filter(is_deleted=False)
+    items = MatgAttributeItem.objects.filter(is_deleted=False)
+
     data = []
-    for attr in attributes:
+    for item in items:
         data.append({
-            "attrib_id": attr.attrib_id,
-            "mgrp_code": attr.mgrp_code.mgrp_code if attr.mgrp_code else None,
-            "attributes": attr.attributes,
-            "created": attr.created.strftime("%Y-%m-%d %H:%M:%S"),
-            "updated": attr.updated.strftime("%Y-%m-%d %H:%M:%S"),
-            "createdby": get_employee_name(attr.createdby),
-            "updatedby": get_employee_name(attr.updatedby)
+            "id": item.id,
+            "mgrp_code": item.mgrp_code.mgrp_code if item.mgrp_code else None,
+            "attribute_name": item.attribute_name,
+            "possible_values": item.possible_values,
+            "uom": item.uom,
+            "created": item.created.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated": item.updated.strftime("%Y-%m-%d %H:%M:%S"),
+            "createdby": get_employee_name(item.createdby),
+            "updatedby": get_employee_name(item.updatedby),
         })
 
     return JsonResponse(data, safe=False)
 
 
-# ✅ UPDATE specific MatgAttribute (merge or overwrite JSON)
+
+# ============================================================
+# ✅ UPDATE A SINGLE ATTRIBUTE ROW
+# ============================================================
 @csrf_exempt
 @authenticate
 @restrict(roles=["Admin", "SuperAdmin", "MDGT"])
-def update_matgattribute(request, attrib_id):
+def update_matgattribute(request, item_id):
     if request.method != "PUT":
         return JsonResponse({"error": "Invalid request method"}, status=405)
 
     try:
         data = json.loads(request.body.decode("utf-8"))
-        attributes_data = data.get("attributes")
-        merge = data.get("merge", True)  # Merge (default) or overwrite
 
-        attribute = MatgAttribute.objects.filter(attrib_id=attrib_id, is_deleted=False).first()
-        if not attribute:
-            return JsonResponse({"error": "MatgAttribute not found"}, status=404)
+        item = MatgAttributeItem.objects.filter(id=item_id, is_deleted=False).first()
+        if not item:
+            return JsonResponse({"error": "Attribute item not found"}, status=404)
 
-        emp_id = request.user.get("emp_id")
-        updatedby = Employee.objects.filter(emp_id=emp_id).first()
+        employee = Employee.objects.filter(emp_id=request.user.get("emp_id")).first()
 
-        # ✅ Handle update
-        if not isinstance(attributes_data, dict):
-            return JsonResponse({"error": "attributes must be a dictionary"}, status=400)
+        # Update fields
+        if "attribute_name" in data:
+            item.attribute_name = data["attribute_name"]
 
-        if merge:
-            # Merge new keys/values
-            attribute.attributes.update(attributes_data)
-        else:
-            # Overwrite the entire JSON
-            attribute.attributes = attributes_data
+        if "possible_values" in data:
+            if not isinstance(data["possible_values"], list):
+                return JsonResponse({"error": "possible_values must be a list"}, status=400)
+            item.possible_values = data["possible_values"]
 
-        attribute.updated = timezone.now()
-        attribute.updatedby = updatedby
-        attribute.save()
+        if "uom" in data:
+            item.uom = data["uom"]
 
-        return JsonResponse({
-            "message": "MatgAttribute updated successfully",
-            "attrib_id": attribute.attrib_id,
-            "mgrp_code": attribute.mgrp_code.mgrp_code,
-            "attributes": attribute.attributes,
-            "updatedby": get_employee_name(attribute.updatedby)
-        })
+        item.updatedby = employee
+        item.updated = timezone.now()
+        item.save()
+
+        return JsonResponse({"message": "Attribute updated successfully"}, status=200)
 
     except json.JSONDecodeError:
-        return JsonResponse({"error": "Invalid JSON data"}, status=400)
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
 
 
-# ✅ DELETE an attribute key or entire record
+
+# ============================================================
+# ✅ DELETE A SINGLE ATTRIBUTE ROW
+# ============================================================
 @csrf_exempt
 @authenticate
 @restrict(roles=["Admin", "SuperAdmin", "MDGT"])
-def delete_matgattribute(request, attrib_id):
+def delete_matgattribute(request, item_id):
     if request.method != "DELETE":
         return JsonResponse({"error": "Invalid request method"}, status=405)
 
-    data = json.loads(request.body.decode("utf-8")) if request.body else {}
-    key_to_delete = data.get("key")
+    item = MatgAttributeItem.objects.filter(id=item_id).first()
+    if not item:
+        return JsonResponse({"error": "Attribute item not found"}, status=404)
 
-    attribute = MatgAttribute.objects.filter(attrib_id=attrib_id).first()
-    if not attribute:
-        return JsonResponse({"error": "MatgAttribute not found"}, status=404)
+    item.is_deleted = True
+    item.save()
 
-    # ✅ Delete only a specific attribute key
-    if key_to_delete:
-        if key_to_delete in attribute.attributes:
-            del attribute.attributes[key_to_delete]
-            attribute.updated = timezone.now()
-            attribute.save()
-            return JsonResponse({"message": f"Attribute '{key_to_delete}' removed."}, status=200)
-        else:
-            return JsonResponse({"error": f"Key '{key_to_delete}' not found."}, status=404)
-
-    # ✅ Or delete entire record
-    attribute.delete()
-    return JsonResponse({"message": "MatgAttribute deleted successfully"}, status=200)
+    return JsonResponse({"message": "Attribute deleted successfully"}, status=200)

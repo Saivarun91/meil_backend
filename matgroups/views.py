@@ -28,7 +28,7 @@ def create_matgroup(request):
             mgrp_shortname = data.get("mgrp_shortname",None)
             mgrp_longname = data.get("mgrp_longname",None)
             is_service = data.get("is_service", False)
-            attribgrpid = data.get("attribgrpid","")
+            attribgrpid = data.get("attribgrpid", None)
             notes = data.get("notes", "")
 
             if not mgrp_code:
@@ -38,6 +38,12 @@ def create_matgroup(request):
             supergroup = SuperGroup.objects.filter(sgrp_code=sgrp_code, is_deleted=False).first()
             # if not supergroup:
             #     return JsonResponse({"error": "SuperGroup not found"}, status=404)
+
+            # ✅ Handle attribgrpid if provided
+            attribgrp_obj = None
+            if attribgrpid:
+                from matg_attributes.models import MatgAttributeItem
+                attribgrp_obj = MatgAttributeItem.objects.filter(id=attribgrpid, is_deleted=False).first()
 
             # ✅ Get Employee for createdby
             emp_id = request.user.get("emp_id")
@@ -49,7 +55,7 @@ def create_matgroup(request):
                 is_service=is_service,
                 mgrp_shortname=mgrp_shortname,
                 mgrp_longname=mgrp_longname,
-                attribgrpid=attribgrpid,
+                attribgrpId=attribgrp_obj,
                 notes=notes,
                 createdby=createdby,
                 updatedby=createdby
@@ -60,11 +66,11 @@ def create_matgroup(request):
                 "mgrp_shortname": matgroup.mgrp_shortname,
                 "mgrp_longname": matgroup.mgrp_longname,
                 "is_service": matgroup.is_service,
-                "attribgrpid": matgroup.attribgrpid,
+                "attribgrpid": matgroup.attribgrpId.id if matgroup.attribgrpId else None,
                 "notes": matgroup.notes,
-                "supergroup": matgroup.sgrp_code.sgrp_name,
-                "created": matgroup.created.strftime("%Y-%m-%d %H:%M:%S"),
-                "updated": matgroup.updated.strftime("%Y-%m-%d %H:%M:%S"),
+                "supergroup": matgroup.sgrp_code.sgrp_name if matgroup.sgrp_code else None,
+                "created": matgroup.created.strftime("%Y-%m-%d %H:%M:%S") if matgroup.created else None,
+                "updated": matgroup.updated.strftime("%Y-%m-%d %H:%M:%S") if matgroup.updated else None,
                 "createdby": get_employee_name(matgroup.createdby),
                 "updatedby": get_employee_name(matgroup.updatedby)
             }
@@ -72,6 +78,8 @@ def create_matgroup(request):
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
@@ -81,24 +89,27 @@ def create_matgroup(request):
 @restrict(roles=["Admin", "SuperAdmin", "User","MDGT"])
 def list_matgroups(request):
     if request.method == "GET":
-        matgroups = MatGroup.objects.filter(is_deleted=False)
-        response_data = []
-        for mg in matgroups:
-            response_data.append({
-                "mgrp_code": mg.mgrp_code,
-                "mgrp_shortname": mg.mgrp_shortname,
-                "mgrp_longname": mg.mgrp_longname,
-                "is_service": mg.is_service,
-                "attribgrpid": mg.attribgrpid,
-                "notes": mg.notes,
-                "supergroup": mg.sgrp_code.sgrp_name if mg.sgrp_code else None,
-                "created": mg.created.strftime("%Y-%m-%d %H:%M:%S"),
-                "updated": mg.updated.strftime("%Y-%m-%d %H:%M:%S"),
-                "createdby": get_employee_name(mg.createdby),
-                "updatedby": get_employee_name(mg.updatedby)
-            })
-        return JsonResponse(response_data, safe=False)
-
+        try:
+            matgroups = MatGroup.objects.filter(is_deleted=False)
+            response_data = []
+            for mg in matgroups:
+                response_data.append({
+                    "mgrp_code": mg.mgrp_code,
+                    "mgrp_shortname": mg.mgrp_shortname,
+                    "mgrp_longname": mg.mgrp_longname,
+                    "is_service": mg.is_service,
+                    "attribgrpid": mg.attribgrpId.id if mg.attribgrpId else None,
+                    "notes": mg.notes,
+                    "supergroup": mg.sgrp_code.sgrp_name if mg.sgrp_code else None,
+                    "created": mg.created.strftime("%Y-%m-%d %H:%M:%S") if mg.created else None,
+                    "updated": mg.updated.strftime("%Y-%m-%d %H:%M:%S") if mg.updated else None,
+                    "createdby": get_employee_name(mg.createdby),
+                    "updatedby": get_employee_name(mg.updatedby)
+                })
+            return JsonResponse(response_data, safe=False)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
 
@@ -119,7 +130,12 @@ def update_matgroup(request, mgrp_code):
             matgroup.mgrp_shortname = data.get("mgrp_shortname", matgroup.mgrp_shortname)
             matgroup.mgrp_longname = data.get("mgrp_longname", matgroup.mgrp_longname)
             matgroup.is_service = data.get("is_service", matgroup.is_service)
-            matgroup.attribgrpid = data.get("attribgrpid", matgroup.attribgrpid)
+            # Handle attribgrpid update if provided
+            attribgrpid = data.get("attribgrpid")
+            if attribgrpid is not None:
+                from matg_attributes.models import MatgAttributeItem
+                attribgrp_obj = MatgAttributeItem.objects.filter(id=attribgrpid, is_deleted=False).first() if attribgrpid else None
+                matgroup.attribgrpId = attribgrp_obj
             matgroup.notes = data.get("notes", matgroup.notes)
 
             # ✅ If sgrp_code is updated
@@ -143,11 +159,11 @@ def update_matgroup(request, mgrp_code):
                 "mgrp_shortname": matgroup.mgrp_shortname,
                 "mgrp_longname": matgroup.mgrp_longname,
                 "is_service": matgroup.is_service,
-                "attribgrpid": matgroup.attribgrpid,
+                "attribgrpid": matgroup.attribgrpId.id if matgroup.attribgrpId else None,
                 "notes": matgroup.notes,
-                "supergroup": matgroup.sgrp_code.sgrp_name,
-                "created": matgroup.created.strftime("%Y-%m-%d %H:%M:%S"),
-                "updated": matgroup.updated.strftime("%Y-%m-%d %H:%M:%S"),
+                "supergroup": matgroup.sgrp_code.sgrp_name if matgroup.sgrp_code else None,
+                "created": matgroup.created.strftime("%Y-%m-%d %H:%M:%S") if matgroup.created else None,
+                "updated": matgroup.updated.strftime("%Y-%m-%d %H:%M:%S") if matgroup.updated else None,
                 "createdby": get_employee_name(matgroup.createdby),
                 "updatedby": get_employee_name(matgroup.updatedby)
             }
@@ -155,6 +171,8 @@ def update_matgroup(request, mgrp_code):
 
         except json.JSONDecodeError:
             return JsonResponse({"error": "Invalid JSON data"}, status=400)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
 
     return JsonResponse({"error": "Invalid request method"}, status=405)
 
