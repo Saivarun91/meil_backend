@@ -416,23 +416,19 @@ def item_details_with_attributes(request, item_id):
             matg_attributes = MatgAttributeItem.objects.filter(
                 mgrp_code=item.mgrp_code,
                 is_deleted=False
-            ).first()
+            )
             
-            if matg_attributes and matg_attributes.attributes:
-                # Extract attributes from JSONField
-                # The attributes JSONField structure is: { "Color": { "values": [...], "print_priority": 1, ... }, ... }
-                for attr_name, attr_config in matg_attributes.attributes.items():
-                    if isinstance(attr_config, dict):
-                        attributes_data.append({
-                            "attrib_name": attr_name,
-                            "attrib_printname": attr_config.get("print_name", attr_name),
-                            "attrib_tagname": attr_config.get("tag_name", attr_name.lower().replace(" ", "_")),
-                            "attrib_printpriority": attr_config.get("print_priority", 0),
-                            "values": attr_config.get("values", []),
-                            "validation": attr_config.get("validation"),
-                            "max_length": attr_config.get("max_length"),
-                            "unit": attr_config.get("unit"),
-                        })
+            # Format attributes based on new model structure
+            for attr_item in matg_attributes:
+                attributes_data.append({
+                    "attrib_name": attr_item.attribute_name,
+                    "attrib_printname": attr_item.attribute_name,
+                    "attrib_tagname": attr_item.attribute_name.lower().replace(" ", "_"),
+                    "attrib_printpriority": attr_item.print_priority or 0,
+                    "values": attr_item.possible_values or [],
+                    "validation": attr_item.validation,
+                    "unit": attr_item.uom,
+                })
 
         response_data = {
             "item": item_data,
