@@ -4,9 +4,15 @@ from django.utils import timezone
 from Employee.models import Employee
 from matg_attributes.models import MatgAttributeItem
 class MatGroup(models.Model):
+    SEARCH_TYPE_CHOICES = [
+        ('service', 'Service'),
+        ('Materials', 'Materials'),
+        ('spares', 'Spares'),
+    ]
+    
     mgrp_code = models.CharField(max_length=30, primary_key=True)
     sgrp_code = models.ForeignKey("supergroups.SuperGroup", on_delete=models.CASCADE, related_name="matgroups",blank=True, null=True)
-    is_service = models.BooleanField(default=False)
+    search_type = models.CharField(max_length=20, choices=SEARCH_TYPE_CHOICES, default='Materials')
     mgrp_shortname = models.CharField(max_length=150,null=True, blank=True)
     mgrp_longname = models.CharField(max_length=150,null=True, blank=True)
     attribgrpId = models.ForeignKey(

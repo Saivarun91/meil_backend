@@ -42,6 +42,15 @@ def list_companies(request):
         )
         return JsonResponse(list(companies), safe=False)
 
+# Public endpoint for registration (no authentication required)
+@csrf_exempt
+def list_companies_public(request):
+    if request.method == "GET":
+        companies = Company.objects.filter(is_deleted=False).values(
+            "company_name", "contact"
+        ).order_by("company_name")
+        return JsonResponse(list(companies), safe=False)
+
 @csrf_exempt
 @authenticate
 @restrict(roles=["Admin", "SuperAdmin"])

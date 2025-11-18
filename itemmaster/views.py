@@ -15,6 +15,26 @@ from Common.Middleware import authenticate, restrict
 def get_employee_name(emp):
     return emp.emp_name if emp else None
 
+# Helper function to format attributes as key:value pairs for short_name
+def format_attributes_for_short_name(attributes):
+    """Format attributes dictionary as 'key: value, key: value' string"""
+    if not attributes or not isinstance(attributes, dict):
+        return ""
+    pairs = [f"{k}: {v}" for k, v in attributes.items() if v]  # Only include non-empty values
+    return ", ".join(pairs)
+
+# Helper function to format long_name with mgrp_code, mgrp_long_name, short_name
+def format_long_name(mgrp_code, mgrp_long_name, short_name):
+    """Format long_name as 'mgrp_code, mgrp_long_name, short_name'"""
+    parts = []
+    if mgrp_code:
+        parts.append(str(mgrp_code))
+    if mgrp_long_name:
+        parts.append(str(mgrp_long_name))
+    if short_name:
+        parts.append(str(short_name))
+    return ", ".join(parts)
+
 
 # ============================================================
 # ✅ CREATE ItemMaster
@@ -30,17 +50,19 @@ def create_itemmaster(request):
         data = json.loads(request.body.decode("utf-8"))
 
         sap_item_id = data.get("sap_item_id")
+        sap_name = data.get("sap_name", "")
         mat_type_code = data.get("mat_type_code")
         mgrp_code = data.get("mgrp_code")
 
-        item_desc = data.get("item_desc")
-        notes = data.get("notes", "")
+        # Support both old field names (item_desc, notes) and new field names (short_name, long_name)
+        item_desc = data.get("item_desc") or data.get("short_name")
+        notes = data.get("notes", "") or data.get("long_name", "")
         search_text = data.get("search_text", "")
         selected_attributes = data.get("attributes", {})
 
         # Required validation
         if not mat_type_code or not mgrp_code or not item_desc:
-            return JsonResponse({"error": "Required: mat_type_code, mgrp_code, item_desc"}, status=400)
+            return JsonResponse({"error": "Required: mat_type_code, mgrp_code, item_desc (or short_name)"}, status=400)
 
         # Validate Employee
         employee = Employee.objects.filter(emp_id=request.user.get("emp_id")).first()
@@ -80,8 +102,28 @@ def create_itemmaster(request):
         for key, value in selected_attributes.items():
             if key not in allowed_attrs:
                 invalid_fields.append(f"'{key}' is not defined for MatGroup {mgrp_code}")
-            elif value not in allowed_attrs[key]["values"]:
-                invalid_fields.append(f"'{value}' is not valid for '{key}'")
+            else:
+                # Extract base value (remove UOM if present)
+                base_value = value
+                uom = allowed_attrs[key].get("uom", "")
+                if uom and isinstance(value, str):
+                    # Check if value ends with UOM (handle both single and multiple UOMs)
+                    uom_list = []
+                    if isinstance(uom, list):
+                        uom_list = uom
+                    elif isinstance(uom, str):
+                        # Handle comma-separated UOMs
+                        uom_list = [u.strip() for u in uom.split(",")] if "," in uom else [uom]
+                    
+                    for u in uom_list:
+                        if value.endswith(f" {u}"):
+                            base_value = value.replace(f" {u}", "")
+                            break
+                
+                # Allow custom values (values not in possible_values) - user requirement
+                # Only validate that the attribute name exists, not the value
+                # Custom values are allowed for flexibility
+                pass  # No validation needed for custom values
 
         if invalid_fields:
             return JsonResponse({
@@ -89,13 +131,34 @@ def create_itemmaster(request):
                 "details": invalid_fields
             }, status=400)
 
+        # Get mgrp_long_name from MatGroup
+        mgrp_long_name = mat_group.mgrp_longname if mat_group else None
+        
+        # Format short_name: if attributes are provided, use formatted attributes, otherwise use item_desc
+        if selected_attributes and any(selected_attributes.values()):
+            formatted_short_name = format_attributes_for_short_name(selected_attributes)
+            # If formatted attributes is empty or too short, fall back to item_desc
+            if not formatted_short_name or len(formatted_short_name) < 3:
+                formatted_short_name = item_desc
+        else:
+            formatted_short_name = item_desc
+        
+        # Format long_name with mgrp_code, mgrp_long_name, short_name
+        formatted_long_name = format_long_name(
+            mat_group.mgrp_code if mat_group else None,
+            mgrp_long_name,
+            formatted_short_name
+        )
+
         # Create ItemMaster
         item = ItemMaster.objects.create(
             sap_item_id=sap_item_id,
+            sap_name=sap_name,
             mat_type_code=material_type,
             mgrp_code=mat_group,
-            item_desc=item_desc,
-            notes=notes,
+            short_name=formatted_short_name,
+            long_name=formatted_long_name,
+            mgrp_long_name=mgrp_long_name,  # Store mgrp_long_name separately
             search_text=search_text,
             attributes=selected_attributes,
             createdby=employee,
@@ -105,12 +168,16 @@ def create_itemmaster(request):
         response_data = {
             "local_item_id": item.local_item_id,
             "sap_item_id": item.sap_item_id,
+            "sap_name": item.sap_name,
             "mat_type_code": item.mat_type_code.mat_type_code,
             "mgrp_code": item.mgrp_code.mgrp_code,
-            "item_desc": item.item_desc,
+            "item_desc": item.short_name,  # Map to old field name for frontend compatibility
+            "short_name": item.short_name,
             "attributes": item.attributes,
-            "notes": item.notes,
+            "notes": item.long_name,  # Map to old field name for frontend compatibility
+            "long_name": item.long_name,
             "search_text": item.search_text,
+            "is_final": item.is_final,
             "created": item.created.strftime("%Y-%m-%d %H:%M:%S"),
             "updated": item.updated.strftime("%Y-%m-%d %H:%M:%S"),
             "createdby": get_employee_name(item.createdby),
@@ -143,12 +210,17 @@ def list_itemmasters(request):
         response_data.append({
             "local_item_id": item.local_item_id,
             "sap_item_id": item.sap_item_id,
+            "sap_name": item.sap_name,
             "mat_type_code": item.mat_type_code.mat_type_code,
             "mgrp_code": item.mgrp_code.mgrp_code,
-            "item_desc": item.item_desc,
+            "mgrp_long_name": item.mgrp_long_name,
+            "item_desc": item.short_name,  # Map to old field name for frontend compatibility
+            "short_name": item.short_name,
             "attributes": item.attributes,
-            "notes": item.notes,
+            "notes": item.long_name,  # Map to old field name for frontend compatibility
+            "long_name": item.long_name,
             "search_text": item.search_text,
+            "is_final": item.is_final,
             "created": item.created.strftime("%Y-%m-%d %H:%M:%S"),
             "updated": item.updated.strftime("%Y-%m-%d %H:%M:%S"),
             "createdby": get_employee_name(item.createdby),
@@ -189,6 +261,8 @@ def update_itemmaster(request, local_item_id):
             if not mat_group:
                 return JsonResponse({"error": f"MatGroup {data['mgrp_code']} not found"}, status=400)
             item.mgrp_code = mat_group
+            # Update mgrp_long_name from MatGroup
+            item.mgrp_long_name = mat_group.mgrp_longname if mat_group else None
 
         # ===============================================================
         # Validate attributes if provided
@@ -211,8 +285,28 @@ def update_itemmaster(request, local_item_id):
             for key, value in selected_attributes.items():
                 if key not in allowed_attrs:
                     invalid_fields.append(f"{key} not defined")
-                elif value not in allowed_attrs[key]["values"]:
-                    invalid_fields.append(f"{value} invalid for {key}")
+                else:
+                    # Extract base value (remove UOM if present)
+                    base_value = value
+                    uom = allowed_attrs[key].get("uom", "")
+                    if uom and isinstance(value, str):
+                        # Check if value ends with UOM (handle both single and multiple UOMs)
+                        uom_list = []
+                        if isinstance(uom, list):
+                            uom_list = uom
+                        elif isinstance(uom, str):
+                            # Handle comma-separated UOMs
+                            uom_list = [u.strip() for u in uom.split(",")] if "," in uom else [uom]
+                        
+                        for u in uom_list:
+                            if value.endswith(f" {u}"):
+                                base_value = value.replace(f" {u}", "")
+                                break
+                    
+                    # Allow custom values (values not in possible_values) - user requirement
+                    # Only validate that the attribute name exists, not the value
+                    # Custom values are allowed for flexibility
+                    pass  # No validation needed for custom values
 
             if invalid_fields:
                 return JsonResponse({
@@ -221,12 +315,33 @@ def update_itemmaster(request, local_item_id):
                 }, status=400)
 
             item.attributes = selected_attributes
+            # Auto-update short_name with formatted attributes if attributes are provided
+            if selected_attributes and any(selected_attributes.values()):
+                formatted_short_name = format_attributes_for_short_name(selected_attributes)
+                if formatted_short_name and len(formatted_short_name) >= 3:
+                    item.short_name = formatted_short_name
 
         # Standard updates
         item.sap_item_id = data.get("sap_item_id", item.sap_item_id)
-        item.item_desc = data.get("item_desc", item.item_desc)
-        item.notes = data.get("notes", item.notes)
+        item.sap_name = data.get("sap_name", item.sap_name)
+        
+        # Support both old and new field names for item_desc/short_name
+        # But only if attributes weren't already used to update short_name
+        if "attributes" not in data and ("item_desc" in data or "short_name" in data):
+            item.short_name = data.get("item_desc") or data.get("short_name") or item.short_name
+        
         item.search_text = data.get("search_text", item.search_text)
+        
+        # Update is_final if provided
+        if "is_final" in data:
+            item.is_final = data.get("is_final", False)
+
+        # Always update long_name with mgrp_code, mgrp_long_name, short_name
+        item.long_name = format_long_name(
+            item.mgrp_code.mgrp_code if item.mgrp_code else None,
+            item.mgrp_long_name,
+            item.short_name
+        )
 
         # Audit
         item.updated = timezone.now()
@@ -236,12 +351,16 @@ def update_itemmaster(request, local_item_id):
         response_data = {
             "local_item_id": item.local_item_id,
             "sap_item_id": item.sap_item_id,
+            "sap_name": item.sap_name,
             "mat_type_code": item.mat_type_code.mat_type_code,
             "mgrp_code": item.mgrp_code.mgrp_code,
-            "item_desc": item.item_desc,
+            "item_desc": item.short_name,  # Map to old field name for frontend compatibility
+            "short_name": item.short_name,
             "attributes": item.attributes,
-            "notes": item.notes,
+            "notes": item.long_name,  # Map to old field name for frontend compatibility
+            "long_name": item.long_name,
             "search_text": item.search_text,
+            "is_final": item.is_final,
             "updated": item.updated.strftime("%Y-%m-%d %H:%M:%S"),
             "updatedby": get_employee_name(item.updatedby)
         }

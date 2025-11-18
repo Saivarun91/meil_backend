@@ -18,15 +18,28 @@ from .serializers import MatGroupSerializer, MaterialTypeSerializer, ItemMasterS
 def search_groups(request):
     """
     Free-text hybrid search across Material Groups using BM25 + Trigram.
+    Filters by search_type if provided.
     """
     query = request.data.get("query", "").strip()
+    search_type = request.data.get("search_type", None)  # Optional filter by search_type
+    
     if not query:
         return Response({"error": "Field 'query' is required"}, status=status.HTTP_400_BAD_REQUEST)
 
+    # Base queryset with search_type filter and only groups with final items
+    base_qs = MatGroup.objects.filter(
+        is_deleted=False,
+        items__is_final=True,
+        items__is_deleted=False
+    ).distinct()
+    if search_type:
+        base_qs = base_qs.filter(search_type=search_type)
+
     search_vector = (
-        SearchVector("items__item_desc", weight="A") +
+        SearchVector("items__short_name", weight="A") +
+        SearchVector("items__long_name", weight="A") +
         SearchVector("items__search_text", weight="B") +
-        SearchVector("notes", weight="A") +
+        SearchVector("notes", weight="A") +  # MatGroup.notes field
         SearchVector("mgrp_shortname", weight="B") +
         SearchVector("mgrp_longname", weight="B")
     )
@@ -34,7 +47,7 @@ def search_groups(request):
 
     # BM25 relevance
     bm25_qs = (
-        MatGroup.objects.filter(is_deleted=False)
+        base_qs
         .annotate(search=search_vector)
         .annotate(rank=SearchRank(search_vector, search_query))
         .filter(rank__gte=0.1)
@@ -42,12 +55,13 @@ def search_groups(request):
 
     # Trigram fuzzy search
     trigram_qs = (
-        MatGroup.objects.filter(is_deleted=False)
+        base_qs
         .annotate(
             trigram_score=(
-                TrigramSimilarity("items__item_desc", query) +
+                TrigramSimilarity("items__short_name", query) +
+                TrigramSimilarity("items__long_name", query) +
                 TrigramSimilarity("items__search_text", query) +
-                TrigramSimilarity("notes", query) +
+                TrigramSimilarity("notes", query) +  # MatGroup.notes field
                 TrigramSimilarity("mgrp_shortname", query) +
                 TrigramSimilarity("mgrp_longname", query)
             )
@@ -59,9 +73,10 @@ def search_groups(request):
     groups = (bm25_qs | trigram_qs).annotate(
         rank=SearchRank(search_vector, search_query),
         score=(
-            TrigramSimilarity("items__item_desc", query) +
+            TrigramSimilarity("items__short_name", query) +
+            TrigramSimilarity("items__long_name", query) +
             TrigramSimilarity("items__search_text", query) +
-            TrigramSimilarity("notes", query) +
+            TrigramSimilarity("notes", query) +  # MatGroup.notes field
             TrigramSimilarity("mgrp_shortname", query) +
             TrigramSimilarity("mgrp_longname", query)
         )
@@ -109,11 +124,19 @@ def material_groups_by_super(request, super_code):
     """
     Get all material groups under a selected super group.
     Filters MatGroup by sgrp_code (ForeignKey to SuperGroup).
+    Optionally filters by search_type if provided as query parameter.
     """
+    search_type = request.GET.get("search_type", None)
+    
     groups = MatGroup.objects.filter(
         sgrp_code__sgrp_code=super_code,
         is_deleted=False
     )
+    
+    # Filter by search_type if provided
+    if search_type:
+        groups = groups.filter(search_type=search_type)
+    
     if not groups.exists():
         return Response({"message": "No material groups found for this super group"}, status=404)
 
@@ -122,6 +145,7 @@ def material_groups_by_super(request, super_code):
             "mgrp_code": g.mgrp_code,
             "mgrp_shortname": g.mgrp_shortname,
             "mgrp_longname": g.mgrp_longname,
+            "search_type": g.search_type,
         }
         for g in groups
     ]
@@ -134,12 +158,13 @@ def materials_by_matgroup(request, mgrp_code):
     Get all material types under a specific material group.
     Only returns material types that have items belonging to the specified material group.
     """
-    # Filter material types that have items in the specified material group
+    # Filter material types that have items in the specified material group (only final items)
     # items__mgrp_code matches against the ForeignKey (mgrp_code is the primary key in MatGroup)
     # Django will match the string mgrp_code against the primary key automatically
     materials = MaterialType.objects.filter(
         items__mgrp_code=mgrp_code,
         items__is_deleted=False,
+        items__is_final=True,
         is_deleted=False
     ).distinct()
 
@@ -163,7 +188,8 @@ def items_by_material_type(request, mat_type_code):
 
     items = ItemMaster.objects.filter(
         mat_type_code=mat_type_code,
-        is_deleted=False
+        is_deleted=False,
+        is_final=True
     )
 
     # Filter by material group if provided
@@ -174,8 +200,10 @@ def items_by_material_type(request, mat_type_code):
         {
             "local_item_id": i.local_item_id,
             "sap_id": i.sap_item_id,
-            "item_desc": i.item_desc,
-            "notes": i.notes,
+            "item_desc": i.short_name,  # Map to old field name for frontend compatibility
+            "short_name": i.short_name,
+            "notes": i.long_name,  # Map to old field name for frontend compatibility
+            "long_name": i.long_name,
             "mgrp_code": i.mgrp_code.mgrp_code if i.mgrp_code else None,
             "mat_type_code": mat_type_code,
         }
@@ -198,16 +226,19 @@ def search_by_matgroup_code(request, mgrp_code):
     except MatGroup.DoesNotExist:
         return Response({"error": "Invalid Material Group Code"}, status=404)
 
-    # Materials in this group
+    # Materials in this group (only those with final items)
     materials = MaterialType.objects.filter(
         items__mgrp_code=group,
+        items__is_final=True,
+        items__is_deleted=False,
         is_deleted=False
     ).distinct()
 
-    # Items in this group
+    # Items in this group (only final items)
     items = ItemMaster.objects.filter(
         mgrp_code=group,
-        is_deleted=False
+        is_deleted=False,
+        is_final=True
     )
 
     data = {
@@ -215,6 +246,7 @@ def search_by_matgroup_code(request, mgrp_code):
             "mgrp_code": group.mgrp_code,
             "mgrp_shortname": group.mgrp_shortname,
             "mgrp_longname": group.mgrp_longname,
+            "search_type": group.search_type,
         },
         "materials": [
             {
@@ -226,7 +258,8 @@ def search_by_matgroup_code(request, mgrp_code):
         "items": [
             {
                 "sap_id": i.sap_item_id,
-                "item_desc": i.item_desc,
+                "item_desc": i.short_name,  # Map to old field name for frontend compatibility
+                "short_name": i.short_name,
             }
             for i in items
         ]
@@ -246,12 +279,13 @@ def items_by_group(request, group_code):
 
     items = ItemMaster.objects.filter(
         mgrp_code=group_code,
-        is_deleted=False
+        is_deleted=False,
+        is_final=True
     )
 
     if query:
         search_vector = (
-            SearchVector("item_desc", weight="A") +
+            SearchVector("short_name", weight="A") +
             SearchVector("search_text", weight="B") +
             SearchVector("mat_type_code", weight="C")
         )
@@ -266,7 +300,7 @@ def items_by_group(request, group_code):
         trigram_qs = (
             items.annotate(
                 trigram_score=(
-                    TrigramSimilarity("item_desc", query) +
+                    TrigramSimilarity("short_name", query) +
                     TrigramSimilarity("search_text", query) +
                     TrigramSimilarity("mat_type_code", query)
                 )
@@ -276,7 +310,7 @@ def items_by_group(request, group_code):
         items = (bm25_qs | trigram_qs).annotate(
             rank=SearchRank(search_vector, search_query),
             trigram_score=(
-                TrigramSimilarity("item_desc", query) +
+                TrigramSimilarity("short_name", query) +
                 TrigramSimilarity("search_text", query) +
                 TrigramSimilarity("mat_type_code", query)
             )
@@ -299,12 +333,13 @@ def items_by_group_and_type(request, group_code, mat_type_code):
     items = ItemMaster.objects.filter(
         mgrp_code=group_code,
         mat_type_code=mat_type_code,
-        is_deleted=False
+        is_deleted=False,
+        is_final=True
     )
 
     if query:
         search_vector = (
-            SearchVector("item_desc", weight="A") +
+            SearchVector("short_name", weight="A") +
             SearchVector("search_text", weight="B")
         )
         search_query = SearchQuery(query)
@@ -318,7 +353,7 @@ def items_by_group_and_type(request, group_code, mat_type_code):
         trigram_qs = (
             items.annotate(
                 trigram_score=(
-                    TrigramSimilarity("item_desc", query) +
+                    TrigramSimilarity("short_name", query) +
                     TrigramSimilarity("search_text", query)
                 )
             ).filter(trigram_score__gte=0.2)
@@ -327,7 +362,7 @@ def items_by_group_and_type(request, group_code, mat_type_code):
         items = (bm25_qs | trigram_qs).annotate(
             rank=SearchRank(search_vector, search_query),
             trigram_score=(
-                TrigramSimilarity("item_desc", query) +
+                TrigramSimilarity("short_name", query) +
                 TrigramSimilarity("search_text", query)
             )
         ).order_by("-rank", "-trigram_score").distinct()
@@ -351,7 +386,8 @@ def sap_ids_by_matgroup(request, group_code):
 
     items = ItemMaster.objects.filter(
         mgrp_code=group,
-        is_deleted=False
+        is_deleted=False,
+        is_final=True
     )
 
     if not items.exists():
@@ -360,7 +396,8 @@ def sap_ids_by_matgroup(request, group_code):
     response_data = [
         {
             "sap_id": item.sap_item_id,
-            "item_desc": item.item_desc,
+            "item_desc": item.short_name,  # Map to old field name for frontend compatibility
+            "short_name": item.short_name,
             "mat_type_code": getattr(item.mat_type_code, "mat_type_code", None),
             "mat_type_desc": getattr(item.mat_type_code, "mat_type_desc", None),
             "mgrp_code": group.mgrp_code,
@@ -387,12 +424,14 @@ def item_details_with_attributes(request, item_id):
             item_id_int = int(item_id)
             item = ItemMaster.objects.filter(
                 local_item_id=item_id_int,
-                is_deleted=False
+                is_deleted=False,
+                is_final=True
             ).first()
             if not item:
                 item = ItemMaster.objects.filter(
                     sap_item_id=item_id_int,
-                    is_deleted=False
+                    is_deleted=False,
+                    is_final=True
                 ).first()
         except ValueError:
             return Response({"error": "Invalid item ID format"}, status=status.HTTP_400_BAD_REQUEST)

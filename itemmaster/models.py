@@ -64,21 +64,29 @@ class ItemMaster(models.Model):
         related_name="items"
     )
 
-    item_desc = models.CharField(max_length=100)
-    notes = models.CharField(max_length=250, blank=True, null=True)
+    # -----------------------------
+    # 🔄 RENAMED FIELDS
+    # -----------------------------
+    short_name = models.CharField(max_length=100)
+    long_name = models.CharField(max_length=250, blank=True, null=True)
+
+    # -----------------------------
+    # 🆕 NEW FIELDS
+    # -----------------------------
+    mgrp_long_name = models.CharField(max_length=150, blank=True, null=True)
+    sap_name = models.CharField(max_length=150, blank=True, null=True)
+
     search_text = models.CharField(max_length=300, blank=True, null=True)
 
-    # ✅ NEW: Store selected attribute values for this item
-    # Example:
-    # {
-    #   "Color": "Red",
-    #   "Size": "M",
-    #   "Material": "Plastic"
-    # }     
     attributes = models.JSONField(
         default=dict,
         help_text="Stores selected attribute values for this material, based on MatGroup's attribute definitions"
     )
+
+    # -----------------------------
+    # 🆕 NEW BOOLEAN FIELD
+    # -----------------------------
+    is_final = models.BooleanField(default=False)
 
     created = models.DateTimeField(auto_now_add=True)
     createdby = models.ForeignKey(
@@ -99,7 +107,7 @@ class ItemMaster(models.Model):
     is_deleted = models.BooleanField(default=False)
 
     def __str__(self):
-        return f"{self.local_item_id} - {self.item_desc}"
+        return f"{self.local_item_id} - {self.short_name}"
 
     class Meta:
         verbose_name = "Item Master"

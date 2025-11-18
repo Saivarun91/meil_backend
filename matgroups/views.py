@@ -27,7 +27,7 @@ def create_matgroup(request):
             sgrp_code = data.get("sgrp_code",None)
             mgrp_shortname = data.get("mgrp_shortname",None)
             mgrp_longname = data.get("mgrp_longname",None)
-            is_service = data.get("is_service", False)
+            search_type = data.get("search_type", "Materials")
             attribgrpid = data.get("attribgrpid", None)
             notes = data.get("notes", "")
 
@@ -52,7 +52,7 @@ def create_matgroup(request):
             matgroup = MatGroup.objects.create(
                 mgrp_code=mgrp_code,
                 sgrp_code=supergroup,
-                is_service=is_service,
+                search_type=search_type,
                 mgrp_shortname=mgrp_shortname,
                 mgrp_longname=mgrp_longname,
                 attribgrpId=attribgrp_obj,
@@ -65,7 +65,7 @@ def create_matgroup(request):
                 "mgrp_code": matgroup.mgrp_code,
                 "mgrp_shortname": matgroup.mgrp_shortname,
                 "mgrp_longname": matgroup.mgrp_longname,
-                "is_service": matgroup.is_service,
+                "search_type": matgroup.search_type,
                 "attribgrpid": matgroup.attribgrpId.id if matgroup.attribgrpId else None,
                 "notes": matgroup.notes,
                 "supergroup": matgroup.sgrp_code.sgrp_name if matgroup.sgrp_code else None,
@@ -97,7 +97,7 @@ def list_matgroups(request):
                     "mgrp_code": mg.mgrp_code,
                     "mgrp_shortname": mg.mgrp_shortname,
                     "mgrp_longname": mg.mgrp_longname,
-                    "is_service": mg.is_service,
+                    "search_type": mg.search_type,
                     "attribgrpid": mg.attribgrpId.id if mg.attribgrpId else None,
                     "notes": mg.notes,
                     "supergroup": mg.sgrp_code.sgrp_name if mg.sgrp_code else None,
@@ -129,7 +129,7 @@ def update_matgroup(request, mgrp_code):
             # ✅ Update fields
             matgroup.mgrp_shortname = data.get("mgrp_shortname", matgroup.mgrp_shortname)
             matgroup.mgrp_longname = data.get("mgrp_longname", matgroup.mgrp_longname)
-            matgroup.is_service = data.get("is_service", matgroup.is_service)
+            matgroup.search_type = data.get("search_type", matgroup.search_type)
             # Handle attribgrpid update if provided
             attribgrpid = data.get("attribgrpid")
             if attribgrpid is not None:
@@ -158,7 +158,7 @@ def update_matgroup(request, mgrp_code):
                 "mgrp_code": matgroup.mgrp_code,
                 "mgrp_shortname": matgroup.mgrp_shortname,
                 "mgrp_longname": matgroup.mgrp_longname,
-                "is_service": matgroup.is_service,
+                "search_type": matgroup.search_type,
                 "attribgrpid": matgroup.attribgrpId.id if matgroup.attribgrpId else None,
                 "notes": matgroup.notes,
                 "supergroup": matgroup.sgrp_code.sgrp_name if matgroup.sgrp_code else None,
