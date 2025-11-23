@@ -17,7 +17,7 @@ def is_admin_or_superadmin(user_payload):
 # List all email domains
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def list_email_domains(request):
     if request.method != "GET":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -40,7 +40,7 @@ def list_email_domains(request):
 # Create a new email domain
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def create_email_domain(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -80,7 +80,7 @@ def create_email_domain(request):
 # Update email domain
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin",'MDGT'])
+# @restrict(roles=["Admin", "SuperAdmin",'MDGT'])
 def update_email_domain(request, pk):
     if request.method != "PUT":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -115,7 +115,7 @@ def update_email_domain(request, pk):
 # Delete email domain (soft delete)
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin"])
+# @restrict(roles=["Admin", "SuperAdmin"])
 def delete_email_domain(request, pk):
     if request.method != "DELETE":
         return JsonResponse({"error": "Method not allowed"}, status=405)

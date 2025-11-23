@@ -20,7 +20,7 @@ def get_employee_name(emp):
 # ============================================================
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin", "MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin", "MDGT"])
 def create_matgattribute(request):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -90,7 +90,7 @@ def create_matgattribute(request):
 # ✅ LIST ALL ATTRIBUTE ROWS
 # ============================================================
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin", "User", "MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin", "User", "MDGT"])
 def list_matgattributes(request):
     if request.method != "GET":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -120,7 +120,7 @@ def list_matgattributes(request):
 # ============================================================
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin", "MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin", "MDGT"])
 def update_matgattribute(request, item_id):
     if request.method != "PUT":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -162,7 +162,7 @@ def update_matgattribute(request, item_id):
 # ============================================================
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin", "MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin", "MDGT"])
 def delete_matgattribute(request, item_id):
     if request.method != "DELETE":
         return JsonResponse({"error": "Invalid request method"}, status=405)

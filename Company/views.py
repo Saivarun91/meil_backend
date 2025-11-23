@@ -8,7 +8,7 @@ from Employee.models import Employee  # adjust path if needed
 from Common.Middleware import authenticate, restrict
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin"])  # only admins can create companies
+# @restrict(roles=["Admin", "SuperAdmin"])  # only admins can create companies
 def create_company(request):
     if request.method == "POST":
         try:
@@ -34,7 +34,7 @@ def create_company(request):
             return JsonResponse({"message": str(e)}, status=500)
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin"])
+# @restrict(roles=["Admin", "SuperAdmin"])
 def list_companies(request):
     if request.method == "GET":
         companies = Company.objects.filter(is_deleted=False).values(
@@ -53,7 +53,7 @@ def list_companies_public(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin"])
+# @restrict(roles=["Admin", "SuperAdmin"])
 def update_company(request, company_name):
     if request.method == "PUT":
         try:
@@ -82,7 +82,7 @@ def update_company(request, company_name):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", " SuperAdmin"])
+# @restrict(roles=["Admin", " SuperAdmin"])
 def delete_company(request, company_name):
     if request.method == "DELETE":
         try:

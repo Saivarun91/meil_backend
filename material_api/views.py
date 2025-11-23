@@ -218,11 +218,12 @@ def items_by_material_type(request, mat_type_code):
 @api_view(["GET"])
 def search_by_matgroup_code(request, mgrp_code):
     """
-    Search directly by a known Material Group code.
+    Search directly by a known Material Group code (case-insensitive).
     Returns the group, its materials, and items.
     """
     try:
-        group = MatGroup.objects.get(mgrp_code=mgrp_code, is_deleted=False)
+        # Case-insensitive search
+        group = MatGroup.objects.get(mgrp_code__iexact=mgrp_code, is_deleted=False)
     except MatGroup.DoesNotExist:
         return Response({"error": "Invalid Material Group Code"}, status=404)
 

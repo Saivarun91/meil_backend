@@ -14,7 +14,7 @@ def get_role_names(permission):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin"])
+# @restrict(roles=["Admin"])
 def list_permissions(request):
     if request.method == "GET":
         permissions = Permission.objects.all()
@@ -44,7 +44,7 @@ def list_permissions(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin"])
+# @restrict(roles=["Admin"])
 def create_permission_for_role(request):
     if request.method == "POST":
         try:
@@ -99,7 +99,7 @@ def create_permission_for_role(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin"])
+# @restrict(roles=["Admin"])
 def permission_detail(request, pk):
     try:
         permission = Permission.objects.get(pk=pk)

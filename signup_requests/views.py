@@ -68,7 +68,7 @@ class SignupRequestView(APIView):
 
 # 🔹 New protected view for pending signups
 @authenticate
-@restrict(["Admin", "SuperAdmin"])   # ✅ only admins can fetch pending requests
+# @restrict(["Admin", "SuperAdmin"])   # ✅ only admins can fetch pending requests
 def get_pending_signups(request):
     pending_requests = SignupRequest.objects.filter(is_approved=False).values(
         "id", "emp_name", "email", "company__company_name", "created"

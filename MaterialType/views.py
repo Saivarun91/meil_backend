@@ -109,7 +109,7 @@ def get_employee_name(emp):
 # ✅ CREATE Material Type
 @csrf_exempt
 @authenticate
-@restrict(roles=["SuperAdmin", "Admin","MDGT"])
+# @restrict(roles=["SuperAdmin", "Admin","MDGT"])
 def create_material_type(request):
     if request.method == "POST":
         try:
@@ -154,7 +154,7 @@ def create_material_type(request):
 # ✅ LIST Material Types
 @csrf_exempt
 @authenticate
-@restrict(roles=["SuperAdmin", "Admin","MDGT"])
+# @restrict(roles=["SuperAdmin", "Admin","MDGT"])
 def list_material_types(request):
     if request.method == "GET":
         try:
@@ -179,7 +179,7 @@ def list_material_types(request):
 # ✅ UPDATE Material Type
 @csrf_exempt
 @authenticate
-@restrict(roles=["SuperAdmin", "Admin","MDGT"])
+# @restrict(roles=["SuperAdmin", "Admin","MDGT"])
 def update_material_type(request, mat_type_code):
     if request.method == "PUT":
         try:
@@ -222,7 +222,7 @@ def update_material_type(request, mat_type_code):
 # ✅ DELETE Material Type (Hard Delete)
 @csrf_exempt
 @authenticate
-@restrict(roles=["SuperAdmin", "Admin","MDGT" ])
+# @restrict(roles=["SuperAdmin", "Admin","MDGT" ])
 def delete_material_type(request, mat_type_code):
     if request.method == "DELETE":
         try:

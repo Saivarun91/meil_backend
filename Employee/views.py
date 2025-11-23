@@ -332,7 +332,7 @@ def reset_password(request):
 # 🔹 List all Employees (Admin/SuperAdmin only)
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def list_employees(request):
     if request.method != "GET":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -359,7 +359,7 @@ def list_employees(request):
 # 🔹 Update Employee (Admin only)
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin'])
+# @restrict(roles=['Admin'])
 def update_employee(request, emp_id):
     if request.method != "PUT":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -426,7 +426,7 @@ def update_employee(request, emp_id):
 # 🔹 Send Registration Invite (Admin/SuperAdmin only)
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def send_registration_invite(request):
     if request.method != "POST":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -472,7 +472,7 @@ def send_registration_invite(request):
 # 🔹 Delete Employee (Admin/SuperAdmin only)
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def delete_employee(request, emp_id):
     if request.method == "DELETE":
         try:
@@ -492,7 +492,7 @@ def delete_employee(request, emp_id):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def list_employees_without_role(request):
     if request.method != "GET":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -515,7 +515,7 @@ def list_employees_without_role(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def assign_role(request, emp_id):
     if request.method != "PUT":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -558,7 +558,7 @@ def assign_role(request, emp_id):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def bulk_assign_roles(request):
     if request.method != "PUT":
         return JsonResponse({"error": "Invalid request method"}, status=405)

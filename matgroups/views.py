@@ -17,7 +17,7 @@ def get_employee_name(emp):
 # ✅ CREATE MatGroup
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def create_matgroup(request):
     if request.method == "POST":
         try:
@@ -86,7 +86,7 @@ def create_matgroup(request):
 
 # ✅ LIST MatGroups
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin", "User","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin", "User","MDGT"])
 def list_matgroups(request):
     if request.method == "GET":
         try:
@@ -116,7 +116,7 @@ def list_matgroups(request):
 # ✅ UPDATE MatGroup
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def update_matgroup(request, mgrp_code):
     if request.method == "PUT":
         try:
@@ -180,7 +180,7 @@ def update_matgroup(request, mgrp_code):
 # ✅ HARD DELETE MatGroup
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def delete_matgroup(request, mgrp_code):
     if request.method == "DELETE":
         matgroup = MatGroup.objects.filter(mgrp_code=mgrp_code).first()

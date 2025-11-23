@@ -11,7 +11,7 @@
 # # ✅ LIST User Roles
 # @csrf_exempt
 # @authenticate
-# @restrict(roles=['Admin', 'SuperAdmin'])
+# # @restrict(roles=['Admin', 'SuperAdmin'])
 # def userrole_list(request):
 #     if request.method == 'GET':
 #         roles = UserRole.objects.filter(is_deleted=False).order_by('role_priority')
@@ -30,7 +30,7 @@
 # # ✅ CREATE User Role
 # @csrf_exempt
 # @authenticate
-# @restrict(roles=['Admin', 'SuperAdmin'])
+# # @restrict(roles=['Admin', 'SuperAdmin'])
 # def userrole_create(request):
 #     if request.method == 'POST':
 #         try:
@@ -55,7 +55,7 @@
 # # ✅ UPDATE User Role
 # @csrf_exempt
 # @authenticate
-# @restrict(roles=['Admin', 'SuperAdmin'])
+# # @restrict(roles=['Admin', 'SuperAdmin'])
 # def userrole_update(request, pk):
 #     if request.method == 'PUT':
 #         try:
@@ -81,7 +81,7 @@
 # # ✅ DELETE User Role (Soft Delete)
 # @csrf_exempt
 # @authenticate
-# @restrict(roles=['Admin', 'SuperAdmin'])
+# # @restrict(roles=['Admin', 'SuperAdmin'])
 # def userrole_delete(request, pk):
 #     if request.method == 'DELETE':
 #         try:
@@ -106,7 +106,7 @@ from django.db.models import Min
 
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def userrole_list(request):
     if request.method == 'GET':
         roles = (
@@ -129,7 +129,7 @@ def userrole_list(request):
 # ✅ CREATE Role
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def userrole_create(request):
     if request.method == 'POST':
         try:
@@ -158,7 +158,7 @@ def userrole_create(request):
 # ✅ UPDATE Role
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def userrole_update(request, pk):
     if request.method == 'PUT':
         try:
@@ -187,7 +187,7 @@ def userrole_update(request, pk):
 # ✅ DELETE Role (Hard Delete)
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def userrole_delete(request, pk):
     if request.method == 'DELETE':
         try:
@@ -202,7 +202,7 @@ def userrole_delete(request, pk):
 
 @csrf_exempt
 @authenticate
-# @restrict(roles=['Admin', 'SuperAdmin'])
+# # @restrict(roles=['Admin', 'SuperAdmin'])
 def userrole_permissions(request, role_name):
     if request.method == 'GET':
         try:
@@ -241,7 +241,7 @@ def userrole_permissions(request, role_name):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def all_roles_with_permissions(request):
     if request.method == 'GET':
         try:
@@ -296,7 +296,7 @@ def all_roles_with_permissions(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def bulk_update_role_permissions(request):
     print("Request method: ", request.method)
     print("Headers: ", request.headers)
@@ -352,7 +352,7 @@ def bulk_update_role_permissions(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def assign_role_permissions(request):
     if request.method == 'POST':
         try:
@@ -406,7 +406,7 @@ def assign_role_permissions(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=['Admin', 'SuperAdmin'])
+# @restrict(roles=['Admin', 'SuperAdmin'])
 def remove_role_permission(request):
     if request.method == 'DELETE':
         try:

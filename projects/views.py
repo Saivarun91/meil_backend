@@ -36,7 +36,7 @@ def is_admin_or_superadmin(user_payload):
 #         return JsonResponse(data, safe=False)
 #     return JsonResponse({"error": "Method not allowed"}, status=405)
 
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def list_projects(request):
     if request.method == "GET":
         projects = Project.objects.all()
@@ -58,7 +58,7 @@ def list_projects(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def create_project(request):
     if request.method != "POST":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -108,7 +108,7 @@ def create_project(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 # def update_project(request, pk):
 #     if request.method == "PUT":
 #         user_payload = request.user_payload
@@ -135,7 +135,7 @@ def create_project(request):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def update_project(request, pk):
     if request.method != "PUT":
         return JsonResponse({"error": "Method not allowed"}, status=405)
@@ -171,7 +171,7 @@ def update_project(request, pk):
         return JsonResponse({"error": str(e)}, status=400)
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def delete_project(request, pk):
     if request.method != "DELETE":
         return JsonResponse({"error": "Method not allowed"}, status=405)

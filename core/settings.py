@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'channels',
     'notifications',
     'uploads',
+    'favorites',
     
 ]
 REST_FRAMEWORK = {

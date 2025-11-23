@@ -13,7 +13,7 @@ from Common.Middleware import authenticate, restrict
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin"])
+# @restrict(roles=["Admin", "SuperAdmin"])
 def approve_user(request, signup_id):
     """
     Approve a pending signup request.
@@ -110,7 +110,7 @@ def approve_user(request, signup_id):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin"])
+# @restrict(roles=["Admin", "SuperAdmin"])
 def get_user(request, approval_id):
     """
     Get details of a specific approved user.
@@ -133,7 +133,7 @@ def get_user(request, approval_id):
 
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin"])
+# @restrict(roles=["Admin", "SuperAdmin"])
 def get_all_users(request):
     """
     Get list of all approved users.

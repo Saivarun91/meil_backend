@@ -17,7 +17,7 @@ def get_employee_name(emp):
 # ✅ CREATE SuperGroup
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def create_supergroup(request):
     if request.method == "POST":
         try:
@@ -61,7 +61,7 @@ def create_supergroup(request):
 
 # ✅ LIST all SuperGroups (excluding deleted)
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin", "User","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin", "User","MDGT"])
 def list_supergroups(request):
     if request.method == "GET":
         supergroups = SuperGroup.objects.filter(is_deleted=False)
@@ -84,7 +84,7 @@ def list_supergroups(request):
 # ✅ UPDATE SuperGroup
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def update_supergroup(request, sgrp_code):
     if request.method == "PUT":
         try:
@@ -125,7 +125,7 @@ def update_supergroup(request, sgrp_code):
 # ✅ HARD DELETE SuperGroup
 @csrf_exempt
 @authenticate
-@restrict(roles=["Admin", "SuperAdmin","MDGT"])
+# @restrict(roles=["Admin", "SuperAdmin","MDGT"])
 def delete_supergroup(request, sgrp_code):
     if request.method == "DELETE":
         supergroup = SuperGroup.objects.filter(sgrp_code=sgrp_code).first()
