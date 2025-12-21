@@ -28,3 +28,5 @@ txaio==25.6.1
 typing_extensions==4.15.0
 tzdata==2025.2
 zope.interface==8.0
+pandas==2.2.0
+openpyxl==3.1.2

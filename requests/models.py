@@ -41,6 +41,10 @@ class Request(models.Model):
     updatedby = models.ForeignKey(
        "Employee.Employee", related_name="requests_updated", on_delete=models.CASCADE, null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
+    
+    # Unread message tracking
+    isread = models.BooleanField(default=False)
+    tobeshown = models.DateTimeField(null=True, blank=True)
 
     def __str__(self):
         return f"Request {self.request_id} - {self.request_status} - {self.project_code}"

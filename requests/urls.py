@@ -10,5 +10,7 @@ urlpatterns = [
     path("assign-material-group/<int:request_id>/", views.assign_material_group, name="assign_material_group"),  # ✅ New
     path("chat/<int:request_id>/", views.list_chat_messages, name="list_chat_messages"),
     path("chat/add/<int:request_id>/", views.add_chat_message, name="add_chat_message"),
+    path("unread-count/", views.get_unread_count, name="get_unread_count"),
+    path("mark-read/<int:request_id>/", views.mark_request_read, name="mark_request_read"),
 ]
 
