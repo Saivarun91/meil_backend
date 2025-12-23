@@ -48,6 +48,8 @@ def create_matgattribute(request):
             attribute_name = attr.get("attribute_name")
             possible_values = attr.get("possible_values", [])
             uom = attr.get("uom")
+            print_priority = attr.get("print_priority", 0)
+            validation = attr.get("validation")
 
             if not attribute_name or not isinstance(possible_values, list):
                 return JsonResponse({"error": "Invalid attribute structure"}, status=400)
@@ -58,6 +60,8 @@ def create_matgattribute(request):
                 defaults={
                     "possible_values": possible_values,
                     "uom": uom,
+                    "print_priority": print_priority,
+                    "validation": validation,
                 }
             )
 
@@ -105,6 +109,8 @@ def list_matgattributes(request):
             "attribute_name": item.attribute_name,
             "possible_values": item.possible_values,
             "uom": item.uom,
+            "validation": item.validation,
+            "print_priority": item.print_priority,
             "created": item.created.strftime("%Y-%m-%d %H:%M:%S"),
             "updated": item.updated.strftime("%Y-%m-%d %H:%M:%S"),
             "createdby": get_employee_name(item.createdby),
@@ -145,6 +151,12 @@ def update_matgattribute(request, item_id):
 
         if "uom" in data:
             item.uom = data["uom"]
+
+        if "print_priority" in data:
+            item.print_priority = data["print_priority"]
+
+        if "validation" in data:
+            item.validation = data["validation"] if data["validation"] else None
 
         item.updatedby = employee
         item.updated = timezone.now()

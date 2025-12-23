@@ -290,9 +290,9 @@ def handle_itemmaster_phase_2(data, request):
                 if not is_valid:
                     errors.append({"row": idx, "error": error_msg})
                     continue
-
-            # Check if value is in possible_values if they are defined
-            if attr_def and attr_def.possible_values and len(attr_def.possible_values) > 0:
+                # If validation passes, allow the value even if it's not in possible_values (custom values are allowed)
+            # If no validation type is set, check possible_values
+            elif attr_def and attr_def.possible_values and len(attr_def.possible_values) > 0:
                 if attr_value not in attr_def.possible_values:
                     errors.append({
                         "row": idx,
