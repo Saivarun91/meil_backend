@@ -308,7 +308,6 @@ def list_itemmasters(request):
 # ============================================================
 @csrf_exempt
 @authenticate
-# @restrict(roles=["Admin", "SuperAdmin", "MDGT"])
 def update_itemmaster(request, local_item_id):
     if request.method != "PUT":
         return JsonResponse({"error": "Invalid request method"}, status=405)
@@ -332,13 +331,13 @@ def update_itemmaster(request, local_item_id):
             mat_group = MatGroup.objects.filter(mgrp_code=data["mgrp_code"]).first()
             if not mat_group:
                 return JsonResponse({"error": f"MatGroup {data['mgrp_code']} not found"}, status=400)
-            item.mgrp_code = mat_group
-            # Update mgrp_long_name from MatGroup
-            item.mgrp_long_name = mat_group.mgrp_longname if mat_group else None
 
-        # ===============================================================
-        # Validate attributes if provided
-        # ===============================================================
+            item.mgrp_code = mat_group
+            item.mgrp_long_name = mat_group.mgrp_longname
+
+        # =========================================================
+        # Validate attributes
+        # =========================================================
         if "attributes" in data:
             selected_attributes = data["attributes"]
 
@@ -357,28 +356,6 @@ def update_itemmaster(request, local_item_id):
             for key, value in selected_attributes.items():
                 if key not in allowed_attrs:
                     invalid_fields.append(f"{key} not defined")
-                else:
-                    # Extract base value (remove UOM if present)
-                    base_value = value
-                    uom = allowed_attrs[key].get("uom", "")
-                    if uom and isinstance(value, str):
-                        # Check if value ends with UOM (handle both single and multiple UOMs)
-                        uom_list = []
-                        if isinstance(uom, list):
-                            uom_list = uom
-                        elif isinstance(uom, str):
-                            # Handle comma-separated UOMs
-                            uom_list = [u.strip() for u in uom.split(",")] if "," in uom else [uom]
-                        
-                        for u in uom_list:
-                            if value.endswith(f" {u}"):
-                                base_value = value.replace(f" {u}", "")
-                                break
-                    
-                    # Allow custom values (values not in possible_values) - user requirement
-                    # Only validate that the attribute name exists, not the value
-                    # Custom values are allowed for flexibility
-                    pass  # No validation needed for custom values
 
             if invalid_fields:
                 return JsonResponse({
@@ -386,29 +363,64 @@ def update_itemmaster(request, local_item_id):
                     "details": invalid_fields
                 }, status=400)
 
+            # =========================================================
+            # 🚨 DUPLICATE CHECK (NEW)
+            # =========================================================
+            existing_items = ItemMaster.objects.filter(
+                mgrp_code=item.mgrp_code,
+                attributes=selected_attributes,
+                is_deleted=False
+            ).exclude(local_item_id=item.local_item_id)
+
+            force_create = data.get("force_create", False)
+
+            existing_items = ItemMaster.objects.filter(
+                mgrp_code=item.mgrp_code,
+                attributes=selected_attributes,
+                is_deleted=False
+            ).exclude(local_item_id=item.local_item_id)
+
+            if existing_items.exists() and not force_create:
+                duplicates = []
+                for existing in existing_items:
+                    duplicates.append({
+                        "local_item_id": existing.local_item_id,
+                        "sap_item_id": existing.sap_item_id,
+                        "mgrp_code": existing.mgrp_code.mgrp_code,
+                        "short_name": existing.short_name,
+                        "attributes": existing.attributes
+                    })
+
+                return JsonResponse({
+                    "warning": "Material found with same attributes and material group",
+                    "duplicates": duplicates,
+                    "message": f"Found {len(duplicates)} existing material(s) with the same attributes in material group {item.mgrp_code.mgrp_code}"
+                }, status=200)
+            # Save attributes
             item.attributes = selected_attributes
-            # Auto-update short_name with formatted attributes if attributes are provided
+
+            # Update short_name from attributes
             if selected_attributes and any(selected_attributes.values()):
                 formatted_short_name = format_attributes_for_short_name(selected_attributes)
                 if formatted_short_name and len(formatted_short_name) >= 3:
                     item.short_name = formatted_short_name
 
+        # =========================================================
         # Standard updates
+        # =========================================================
+
         item.sap_item_id = data.get("sap_item_id", item.sap_item_id)
         item.sap_name = data.get("sap_name", item.sap_name)
-        
-        # Support both old and new field names for item_desc/short_name
-        # But only if attributes weren't already used to update short_name
+
         if "attributes" not in data and ("item_desc" in data or "short_name" in data):
             item.short_name = data.get("item_desc") or data.get("short_name") or item.short_name
-        
+
         item.search_text = data.get("search_text", item.search_text)
-        
-        # Update is_final if provided
+
         if "is_final" in data:
             item.is_final = data.get("is_final", False)
 
-        # Always update long_name with mgrp_code, mgrp_long_name, short_name
+        # Always rebuild long_name
         item.long_name = format_long_name(
             item.mgrp_code.mgrp_code if item.mgrp_code else None,
             item.mgrp_long_name,
@@ -418,6 +430,7 @@ def update_itemmaster(request, local_item_id):
         # Audit
         item.updated = timezone.now()
         item.updatedby = Employee.objects.filter(emp_id=request.user.get("emp_id")).first()
+
         item.save()
 
         response_data = {
@@ -426,10 +439,10 @@ def update_itemmaster(request, local_item_id):
             "sap_name": item.sap_name,
             "mat_type_code": item.mat_type_code.mat_type_code,
             "mgrp_code": item.mgrp_code.mgrp_code,
-            "item_desc": item.short_name,  # Map to old field name for frontend compatibility
+            "item_desc": item.short_name,
             "short_name": item.short_name,
             "attributes": item.attributes,
-            "notes": item.long_name,  # Map to old field name for frontend compatibility
+            "notes": item.long_name,
             "long_name": item.long_name,
             "search_text": item.search_text,
             "is_final": item.is_final,
@@ -441,10 +454,10 @@ def update_itemmaster(request, local_item_id):
 
     except json.JSONDecodeError:
         return JsonResponse({"error": "Invalid JSON"}, status=400)
+
     except Exception as e:
         print("ERROR:", e)
         return JsonResponse({"error": str(e)}, status=500)
-
 
 
 # ============================================================
