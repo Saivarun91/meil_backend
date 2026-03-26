@@ -1,0 +1,37 @@
+from django.db import models
+from django.conf import settings
+from django.utils import timezone
+from Employee.models import Employee
+from matg_attributes.models import MatgAttributeItem
+class MatGroup(models.Model):
+    SEARCH_TYPE_CHOICES = [
+        ('service', 'Service'),
+        ('Materials', 'Materials'),
+        ('spares', 'Spares'),
+    ]
+    
+    mgrp_code = models.CharField(max_length=30, primary_key=True)
+    sgrp_code = models.ForeignKey("supergroups.SuperGroup", on_delete=models.CASCADE, related_name="matgroups",blank=True, null=True)
+    search_type = models.CharField(max_length=20, choices=SEARCH_TYPE_CHOICES, default='Materials')
+    mgrp_shortname = models.CharField(max_length=150,null=True, blank=True)
+    mgrp_longname = models.CharField(max_length=150,null=True, blank=True)
+    attribgrpId = models.ForeignKey(
+        "matg_attributes.MatgAttributeItem",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+)
+
+    uom_values = models.JSONField(default=list, blank=True, help_text="List of Unit of Measure values for this group")
+    notes = models.CharField(max_length=250, blank=True)
+
+    created = models.DateTimeField(default=timezone.now)
+    createdby = models.ForeignKey(Employee, related_name="matgroup_created",
+                                  on_delete=models.SET_NULL, null=True, blank=True)
+    updated = models.DateTimeField(default=timezone.now)  
+    updatedby = models.ForeignKey(Employee, related_name="matgroup_updated",
+                                  on_delete=models.SET_NULL, null=True, blank=True)
+    is_deleted = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.mgrp_shortname
